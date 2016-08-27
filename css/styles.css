@@ -1,18 +1,18 @@
 body{
   font-family: monospace;
   background-color: black;
-  color: #00e600;
+  color: black;
   line-height: 10px;
 }
 
-#block{
+.visible{
+  color: #00e600;
+}
+
+.block{
   color: red;
 }
 
 #player{
   color: white;
-}
-
-#line{
-  color: orange;
 }
