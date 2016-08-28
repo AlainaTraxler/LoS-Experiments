@@ -1,4 +1,4 @@
-// mapArray holds the actual map data. visibleArray is used as a clone for mapArray, with visible spots replaced with '^' to denote. perimeterArray is used to ensure that all calls stay in-bounds of mapArray and visibleArray, and is adjusted each time checkSight() is run.
+// mapArray holds the actual map data. visibleArray is a smaller, dynamic array that only holds the data for the visible area
 
 var mapArray = [];
 var visibleArray = [];
@@ -8,14 +8,15 @@ var perimeterArray = [];
 var playerY = 10;
 var playerX = 10;
 
-// Length and height of the level. Must be > sightLength. I don't know why.
+// Length and height of the level.
 
-var xAxis = 30;
-var yAxis = 30;
+var xAxis = 50;
+var yAxis = 50;
 
-// How far away the player can see when sight is unobstructed. Does NOT count the player space
+// sightLength is how far away the player can see when sight is unobstructed. Does NOT count the player space. sightBound helps define the constant size of visibleArray in order to keep viewsize consistent and avoid offset problems.
 
 var sightLength = 10;
+var sightBound = 2 * sightLength + 1;
 
 // Controls density of pillars. Higher numbers will make fewer pillars
 
@@ -40,34 +41,29 @@ function initializeMap() {
   mapArray[playerX][playerY] = "@"
 }
 
-// Draws the entire map using visibility data from visibleArray and content data from mapArray
+// Draws only the visible area of the map
 
 function drawMap() {
   $("#main_con").text("");
 
-  // Loops through the entire map size
+  // Loops through the visible map area
 
-  for(y = 0; y <= yAxis; ++y){
-    for(x = 0; x <= xAxis; ++x){
+  for(var y = 0; y <= sightBound; ++y){
+    for(var x = 0; x <= sightBound; ++x){
 
-      //Checks visibleArray for a visible marker ("^") and appends it the corresponding position from mapArray with the default 'visible' class if no optional coloring is found. If not visible, a non-breaking space is inserted.
+      //Draws visibleArray with appropriate color markups.
 
-      if(visibleArray[y][x] === "^"){
-        if(mapArray[y][x] === "@"){
-            $("#main_con").append("<span id='player'>@<span>");
-        }
-        else if(mapArray[y][x] === "#"){
-          $("#main_con").append("<span class='block'>#<span>");
-        }
-        else{
-          $("#main_con").append("<span class='visible'>" + mapArray[y][x] + "</span>");
-        }
+      if(visibleArray[y][x] === "@"){
+          $("#main_con").append("<span id='player'>@<span>");
+      }else if(visibleArray[y][x] === "#"){
+        $("#main_con").append("<span class='block'>#<span>");
       }else{
-        $("#main_con").append("&nbsp;");
+        $("#main_con").append("<span class='visible'>" + visibleArray[y][x] + "</span>");
       }
     }
   $("#main_con").append("<br>");
   }
+
 }
 
 // Determines the coordinates for drawing a line from x0, y0 to x1,y1. Terminates if plot() returns a false.
@@ -107,10 +103,13 @@ var drawline = function(x0,y0,x1,y1){
   }
 }
 
-//Used by drawline to plot the current coordinates. Checks to see if current coordinates are a wall, and if so, sends back a false and terminates drawline(). Automatically sets whatever coordinates its checking as visible, even if it's a wall, so that said wall can be visible.
+//Used by drawline to plot the current coordinates. Checks to see if current coordinates are a wall, and if so, sends back a false and terminates drawline(). Automatically populates visibleArray with the matching data in mapArray for the current coordinates regardless of outcome.
 
 var plot = function(x,y){
-  visibleArray[playerY+y][playerX+x] = "^";
+
+  // sightLength is used as the visibleArray reference in order to keep the visible area centered on the player. mapArray also centers on the player when gathering reference data, but uses their actual position to do so.
+
+  visibleArray[sightLength+y][sightLength+x] = mapArray[playerY+y][playerX+x];
   if(mapArray[playerY+y][playerX+x] !== "#"){
     return true;
   }
@@ -119,15 +118,9 @@ var plot = function(x,y){
   }
 }
 
-// Checks all sight vectors and marks visible spots as such on visibleArray. The line of sight model used is square, and is dependant upon the level boundaries also being square (but not the traversible area of the level.)
+// Checks all sight vectors and populates visibleArray. The line of sight model used is square, and is dependant upon the level boundaries also being square (but not the traversible area of the level.)
 
 function checkSight() {
-
-  // Deep copies mapArray.
-
-  visibleArray = mapArray.map(function(arr) {
-    return arr.slice();
-  });
 
   //These variables are what will prevent plot() from checking undefined array locations.
 
@@ -166,7 +159,7 @@ function checkSight() {
     }
   }
 
-// The following for loops build an array of perimeter coordinates using the boundaries established by the boundVars. Each loop handles 2 of the 8 octants.
+// The following for loops build an array of perimeter coordinates using the boundaries established by the boundVars. This ensures that plot() will never attempt to look outside of mapArray's defined data.  Each loop handles 2 of the 8 octants.
 
   //    Octants:
   //     \1|2/
@@ -200,6 +193,19 @@ function checkSight() {
     perimeterArray.push([i, boundWest]);
     perimeterArray.push([i, boundEast]);
   }
+
+  // Resets and builds visibleArray at a constant size, and populates it with blank (i.e. invisible) spaces
+
+  visibleArray = [];
+
+  for(var i = 0; i <= sightBound; ++i) {
+    visibleArray[i] = [];
+    for(var j = 0; j <= sightBound; ++j){
+      visibleArray[i][j] = "&nbsp;";
+    }
+  }
+
+  // Checks visible area within allowed boundaries.
 
   for(var i = 0; i < perimeterArray.length ; ++i){
     var toY = perimeterArray[i][0];
@@ -245,8 +251,6 @@ function playerMovement(checkY, checkX){
     mapArray[playerY][playerX] = "@";
     checkSight();
     drawMap();
-  } else{
-    console.log("invalid");
   }
 };
 
